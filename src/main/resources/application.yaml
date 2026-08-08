@@ -1,0 +1,80 @@
+spring:
+  application:
+    name: spring-boot-jobrunr-demo
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/jobrunr
+    username: root
+    password: root
+    hikari:
+      pool-name: wms-hikari
+      maximum-pool-size: 15
+      minimum-idle: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 50
+
+  mail:
+    host: ${SMTP_HOST:smtp.mailtrap.io}
+    port: ${SMTP_PORT:2525}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+
+server:
+  port: 8080
+
+# ---------------------------------------------------------------------------
+# JobRunr configuration
+# ---------------------------------------------------------------------------
+# background-job-server.enabled -> this node will actually pull & execute jobs.
+#
+# In a distributed setup:
+#   enabled=false -> API / enqueue node
+#   enabled=true  -> worker node
+#
+# dashboard.enabled -> JobRunr dashboard
+# ---------------------------------------------------------------------------
+
+org:
+  jobrunr:
+    background-job-server:
+      enabled: ${JOBRUNR_WORKER_ENABLED:true}
+      worker-count: ${JOBRUNR_WORKER_COUNT:10}
+      poll-interval-in-seconds: 15
+      delete-succeeded-jobs-after: PT48H
+      permanently-delete-deleted-jobs-after: P7D
+
+    dashboard:
+      enabled: ${JOBRUNR_DASHBOARD_ENABLED:true}
+      port: ${JOBRUNR_DASHBOARD_PORT:8000}
+      username: ${JOBRUNR_DASHBOARD_USER:admin}
+      password: ${JOBRUNR_DASHBOARD_PASSWORD:admin123}
+
+    database:
+      skip-create: false
+      type: sql
+
+    jobs:
+      default-number-of-retries: 5
+      retry-back-off-time-seed: 10
+
+    miscellaneous:
+      allow-anonymous-data-usage: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,jobrunr
+
+logging:
+  level:
+    org.jobrunr: INFO
+    com.wms.jobrunr: DEBUG
