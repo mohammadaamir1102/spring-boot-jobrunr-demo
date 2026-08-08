@@ -1,0 +1,82 @@
+# JobRunr WMS demo.
+#
+# Single-instance dev:      docker compose up mysql -d
+# Full distributed demo:    docker compose up --build
+#   - 2 worker nodes  (pull + execute jobs, each shows its own dashboard: 8001 / 8002)
+#   - 1 API-only node (enqueues jobs, background-job-server disabled, no dashboard)
+services:
+
+  mysql:
+    image: mysql:8
+    container_name: wms-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: jobrunr
+    ports:
+      - "3306:3306"
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - wms-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  worker-1:
+    build: .
+    container_name: wms-worker-1
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8081
+      JOBRUNR_WORKER_ENABLED: "true"
+      JOBRUNR_DASHBOARD_PORT: 8001
+      JOBRUNR_DASHBOARD_ENABLED: "true"
+      DB_URL: jdbc:mysql://mysql:3306/jobrunr
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      SPRING_PROFILES_ACTIVE: demo
+    ports:
+      - "8081:8081"
+      - "8001:8001"
+
+  worker-2:
+    build: .
+    container_name: wms-worker-2
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8082
+      JOBRUNR_WORKER_ENABLED: "true"
+      JOBRUNR_DASHBOARD_PORT: 8002
+      JOBRUNR_DASHBOARD_ENABLED: "true"
+      DB_URL: jdbc:mysql://mysql:3306/jobrunr
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      SPRING_PROFILES_ACTIVE: demo
+    ports:
+      - "8082:8082"
+      - "8002:8002"
+
+  api-only:
+    build: .
+    container_name: wms-api-only
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8083
+      JOBRUNR_WORKER_ENABLED: "false"   # enqueues only — never executes
+      JOBRUNR_DASHBOARD_ENABLED: "false"
+      DB_URL: jdbc:mysql://mysql:3306/jobrunr
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      SPRING_PROFILES_ACTIVE: demo
+    ports:
+      - "8083:8083"
+
+volumes:
+  wms-mysql-data:

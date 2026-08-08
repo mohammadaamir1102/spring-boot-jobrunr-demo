@@ -43,7 +43,7 @@ distributed lock.
 | 9 | **Job chaining / continuation** | Pick-list validation after the batch | Delayed follow-up job (see note below) |
 | 10 | **Dashboard progress + logging** | Midnight reconciliation streams progress | `JobContext.logger()` |
 | 11 | **Custom job filters** | Alert when a job permanently fails | `JobServerFilter`, `ApplyStateFilter` |
-| 12 | **Manual trigger of a recurring job** | `POST /api/v1/jobs/recurring/{id}/trigger` | `BackgroundJob.triggerRecurringJob(...)` |
+| 12 | **Manual trigger of a recurring job** | `POST /api/v1/jobs/recurring/{id}/trigger` | Enqueue-one-shot (OSS pattern; `BackgroundJob.triggerRecurringJob` is Pro) |
 | 13 | **Distributed dashboard security** | Basic-auth protected dashboard | `org.jobrunr.dashboard.username/password` |
 | 14 | **API-only vs Worker-only nodes** | `docker-compose.yml` | `background-job-server.enabled=false` |
 
@@ -82,6 +82,12 @@ com.wms.jobrunr
 JobRunr imports; the `jobs/` package is the only place that knows about `JobRequest` /
 `JobRequestHandler`. This keeps business logic unit-testable without touching JobRunr at all,
 and keeps a clean seam if you ever swap job engines.
+
+> **Property-prefix gotcha (this repo hits it):** the Spring Boot starter binds JobRunr
+> configuration under the **`jobrunr.*`** prefix (e.g. `jobrunr.background-job-server.enabled`),
+> *not* `org.jobrunr.*` as in standalone / older starters. Using the wrong prefix silently
+> leaves the worker and dashboard **disabled** (their defaults are `false`) and jobs pile up
+> as `ENQUEUED` forever — a classic silent failure. See `application.yaml`.
 
 ---
 

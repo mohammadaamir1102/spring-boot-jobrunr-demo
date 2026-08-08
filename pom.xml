@@ -46,12 +46,6 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>com.mysql</groupId>
-			<artifactId>mysql-connector-j</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-
 		<!-- JobRunr: core + Spring Boot starter (auto-configures JobScheduler, JobRequestScheduler,
              the BackgroundJobServer worker pool and the dashboard) -->
 		<dependency>
@@ -97,6 +91,25 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<!--
+			  JDK 9+ + maven-compiler-plugin no longer reliably discovers annotation
+			  processors that live on the plain classpath; unless they are declared
+			  here, Lombok (@Slf4j, @Getter/@Setter, @RequiredArgsConstructor) is never
+			  invoked and compilation fails with "cannot find symbol: method getX()".
+			-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+							<version>${lombok.version}</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

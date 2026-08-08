@@ -27,6 +27,9 @@ public class Order {
     private String customerName;
 
     @Column(nullable = false)
+    private String customerEmail;
+
+    @Column(nullable = false)
     private String sku;
 
     @Column(nullable = false)
