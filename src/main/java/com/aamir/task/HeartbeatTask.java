@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class HeartbeatTask {
 
-    @Scheduled(fixedRate = 60_000) //
+    @Scheduled(fixedRate = 60_000) // every 60 seconds
     public void logNodeHeartbeat() {
         log.debug("Node heartbeat OK - pid={}", ProcessHandle.current().pid());
     }

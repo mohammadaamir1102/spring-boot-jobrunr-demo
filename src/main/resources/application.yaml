@@ -49,8 +49,8 @@ jobrunr:
     enabled: ${JOBRUNR_WORKER_ENABLED:true}
     worker-count: ${JOBRUNR_WORKER_COUNT:10}
     poll-interval-in-seconds: 15
-    delete-succeeded-jobs-after: PT48H
-    permanently-delete-deleted-jobs-after: P7D
+#    delete-succeeded-jobs-after: PT48H
+#    permanently-delete-deleted-jobs-after: P7D
 
   dashboard:
     enabled: ${JOBRUNR_DASHBOARD_ENABLED:true}

@@ -68,7 +68,7 @@ Succeeded / Failed / Deleted) with **search by name**, **filter by state**, and 
 | **Customer says "my order is still PLACED"** | Filter by "Process new order #4" | See if it FAILED (read stack trace), was retried, or never enqueued. If missing entirely, look for a failure to enqueue in `OrderController`. |
 | **ERP sync keeps failing** | The flaky `ErpSyncService` job shows FAILED | That's the feature: check its *retry counter* and *next scheduled* time — backoff is working. Only when `retries` is exhausted does the permanently-failed state appear and your `JobEventListener` logs the alert. |
 | **A report job looks like it ran on the "wrong" pod** | Two Succeeded entries for one recurring run | With JobRunr this shouldn't happen (one occurrence is claimed atomically by one node). If you see duplicates, look for a duplicate `@Recurring` definition or a manual trigger plus the cron both firing at once. |
-| **A bad job is retried 1,000× forever** | Loop of SCHEDULED → FAILED | Lower the `@Job(retries=...)` cap, or delete the job (see Delete below). |
+| **A bad job is retried forever** | Loop of SCHEDULED → FAILED | Lower the `@Job(retries=...)` cap, or delete the job (see the Delete tip below). |
 | **Clean old data** | Old runs no longer relevant | **Delete** via the job detail button (or via the `delete-succeeded-jobs-after` retention config). |
 | **Need an audit trail for compliance** | "When exactly did it run, how many retries, what was the error?" | Export the state-history timeline — your immutable per-job history. Screenshot or scrape `GET /api/jobs/{id}`. |
 
@@ -94,9 +94,9 @@ Lists every `@Recurring` schedule defined in `RecurringJobs.java`.
 | Scenario | Signal | Solution |
 |---|---|---|
 | **Ops asks "what runs after midnight?"** | List the recurring table | Show them this tab — it's the schedule, in one page. |
-| **A schedule has moved to a different warehouse timezone** | `zoneId` shown per job | Edit `zoneId` in `RecurringJobs.java` + redeploy. The `run` post is dashboard-clean. |
-| **You need to test midnight now** | Click+ back-close: read the id | **OSS has no "Trigger now" button — use the shipped endpoint:** `curl -X POST localhost:8080/api/v1/jobs/recurring/midnight-inventory-reconciliation/trigger` (see `flow.md` §6). **(Pro)** adds dashboard "Trigger now". |
-| **A recurring def keeps failing and you watch it a million times a day** | Last run shows FAILED | Delete the schedule (delete button in this tab), stop by telegram `@Recurring` id, redeploy. |
+| **A schedule has moved to a different warehouse timezone** | `zoneId` shown per job | Edit `zoneId` in `RecurringJobs.java` and redeploy. The new value takes effect on the next registration. |
+| **You need to test midnight now** | Read the recurring job id from this tab | **OSS has no "Trigger now" button — use the shipped HTTP endpoint:** `curl -X POST localhost:8080/api/v1/jobs/recurring/midnight-inventory-reconciliation/trigger` (see `flow.md` §6). **(Pro)** also adds a dashboard "Trigger now" button. |
+| **A recurring job keeps failing and you want it gone** | Last run always FAILED | Delete the schedule from this tab (or remove the `@Recurring` from code and redeploy). Fix the root cause first, then re-create it. |
 
 ---
 
@@ -104,16 +104,16 @@ Lists every `@Recurring` schedule defined in `RecurringJobs.java`.
 
 ### What you can see
 - Every `BackgroundJobServer` currently registered: **hostname, worker pool size, poll interval**.
-- Which node is the **master** that assigns work (the zoekeeper).
-- Server uptime / heart so you can spot a dead pod.
+- Which node is the **master** that coordinates work (the "zookeeper" role).
+- Server uptime / heartbeat so you can spot a dead pod.
 
 ### Scenarios and "solutions"
 
 | Scenario | Signal | Solution |
 |---|---|---|
 | **"Are my workers actually registered?"** | Any line in Servers tab | Two lines for `wms-worker-1` + `wms-worker-2` in compose. If missing: check `JOBRUNR_WORKER_ENABLED=true` + connectivity to MySQL. |
-| **"All jobs are succeeding, but one pod is the only executor"** | Only one server line / one node's `master` constant | Not a bug — JobRunr executes **once**; the other node is usually the one that never scored work, which is fine. If you want per-node load, enqueue *more* jobs (they spread). |
-| **A worker node looks unresponsive** | Server line dead in Servers tab | That node was killed / lost DB. Jobs aren't lost — the claim is one shot. Bring it back, JobRunr fails over to the other worker. |
+| **"All jobs are succeeding, but one pod is the only executor"** | Only one server line / one node is always the master | Not a bug — JobRunr executes **once**; the other node usually just didn't claim any of the small batches, which is fine. If you want more per-node load, enqueue more jobs (they spread out). |
+| **A worker node looks unresponsive** | A server line vanishes from the Servers tab | That node was killed or lost DB connectivity. Jobs aren't lost — claiming is atomic, the other worker picks up. Restart it and JobRunr re-registers it. |
 
 ---
 
@@ -132,7 +132,7 @@ jobrunr:
     delete-succeeded-jobs-after: PT48H      # keep successes 2 days
     permanently-delete-deleted-jobs-after: P7D
 ```
-(you can liberal bounce these next to your compliance).
+(adjust the values to match your compliance window).
 
 ---
 
@@ -154,12 +154,12 @@ Automation is easy to script:
 
 | Problem | Where to look in the dashboard | What to actually do |
 |---|---|---|
-| Health of background processing | Overview counters | if Failed flat, it's healthy; act on red |
-| A specific failure | Job detail → stack + state timeline | Requeue painstakingly needed, read the trace |
-| Cron & scheduling | Recurring Jobs tab | verify, edit cron in code, A; for immediate run use the trigger endpoint |
-| Parallel load / cluster | Servers tab | verify nodes; scale workers; enqueue more work |
-| Alert when dead | JobEventListener + dashboard | fill in webhook there; dashboard confirms state history |
-| Cleanup | Jobs tab + `delete-succeeded` | delete old runs manually or via retention |
+| Health of background processing | Overview counters | Healthy if Failed stays flat; act when it spikes |
+| A specific failure | Job detail → stack + state timeline | Read the trace, fix the root cause; Requeue if the failure was transient |
+| Cron & scheduling | Recurring Jobs tab | Verify schedules; edit cron/zone in code and redeploy; for an immediate run use the trigger endpoint |
+| Parallel load / cluster | Servers tab | Verify nodes are registered; scale workers or add nodes; enqueue more work to spread it |
+| Alert when dead | `JobEventListener` + dashboard | Wire in an alerting hook there; the dashboard confirms the state history |
+| Cleanup | Jobs tab + retention settings | Delete old runs manually or let `delete-succeeded…` retention do it |
 
 **Golden rule once you internalize it:** the dashboard is *cross-node* and *durable* — whatever
 you see is spread across all worker pods but presented as one picture. That alone is the step
