@@ -2,6 +2,7 @@ package com.aamir.controller;
 
 import com.aamir.entity.Order;
 import com.aamir.repo.OrderRepository;
+import com.aamir.req.CreateOrderRequest;
 import com.aamir.req.OrderConfirmationEmailJobRequest;
 import com.aamir.req.OrderProcessingJobRequest;
 import com.aamir.service.BulkPickListBatchService;
@@ -39,14 +40,6 @@ public class OrderController {
     private final OrderRepository orderRepository;
     private final JobRequestScheduler jobRequestScheduler;
     private final BulkPickListBatchService bulkPickListBatchService;
-
-    public record CreateOrderRequest(
-            @NotBlank String customerName,
-            @NotBlank @Email String customerEmail,
-            @NotBlank String sku,
-            @Min(1) Integer quantity,
-            @NotBlank String warehouseCode
-    ) {}
 
     /**
      * POST /api/v1/orders
